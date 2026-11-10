@@ -1,1 +1,70 @@
 # Tocks
+
+Panel multi-tenant de inventario, caja y ventas. Inspirado en PICOInventory, pensado para que cualquier persona cree su tienda y la gestione. Backend: **Supabase** (Auth + Postgres + RLS).
+
+## Demo actual (sin suscripción)
+
+Puedes correr la app ya mismo en **modo demo local** (localStorage): crear cuenta, crear tienda, sedes, productos, vender en caja y ver estadísticas.
+
+Cuando configures Supabase, la misma UI pasa a datos reales multi-tenant.
+
+### Qué incluye
+
+- Auth (registro / login)
+- Crear una o varias tiendas por usuario
+- Sedes (locations) por tienda
+- Inventario: productos, stock por sede, categorías, papelera
+- Caja POS por sede con descuento
+- Historial de ventas + estadísticas básicas
+
+### Aún no (próximas iteraciones)
+
+- Suscripciones / billing
+- Pedidos web, facturas PDF, sellos, créditos, calendario, grupos por color
+
+## Arranque local
+
+```bash
+npm install
+npm run dev
+```
+
+Sin variables de entorno → modo demo local.
+
+Con Supabase:
+
+```bash
+cp .env.example .env.local
+# llena SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY
+npm run dev
+```
+
+## Configurar Supabase
+
+1. Crea un proyecto en Supabase.
+2. En **Authentication → Providers**, deja Email habilitado.
+   - Para demo rápida: desactiva “Confirm email” si quieres entrar sin verificar.
+3. Corre el schema: `supabase/migrations/001_init.sql` en el SQL Editor (o `supabase db push`).
+4. Copia:
+   - **Project URL** → `SUPABASE_URL`
+   - **Publishable key** (`sb_publishable_...`) → `SUPABASE_PUBLISHABLE_KEY`
+5. Reinicia `npm run dev`.
+
+### Qué NO hace falta en el frontend
+
+- **Direct connection string** / database password: solo para migraciones CLI o tools de servidor. No la pongas en el cliente.
+- **Secret key / service_role**: nunca en el browser.
+
+## Scripts
+
+| Comando        | Uso                |
+| -------------- | ------------------ |
+| `npm run dev`  | Dev server         |
+| `npm run build`| Build producción   |
+| `npm run preview` | Preview del build |
+
+## Modelo multi-tenant (resumen)
+
+`stores` → `store_members` → `locations` / `categories` / `products` → `product_stock` → `sales` + `sale_items`
+
+RLS: solo miembros de la tienda ven y escriben sus datos. El checkout POS usa la función `checkout_sale` (transacción atómica).
