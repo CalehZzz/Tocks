@@ -596,11 +596,13 @@ export const demoApi = {
   },
 
   async uploadProductImage(_storeId: string, file: File): Promise<string> {
+    const { compressProductImage } = await import('./compressImage')
+    const compressed = await compressProductImage(file)
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(String(reader.result))
       reader.onerror = () => reject(new Error('No se pudo leer la imagen'))
-      reader.readAsDataURL(file)
+      reader.readAsDataURL(compressed)
     })
   },
 

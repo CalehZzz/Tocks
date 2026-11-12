@@ -96,15 +96,11 @@ export function InventoryPage() {
 
   async function onImage(file: File | null) {
     if (!file) return
-    if (file.size > 2_500_000) {
-      toast('Imagen muy grande (máx ~2.5 MB). Comprime o usa Storage.')
-      return
-    }
     setUploading(true)
     try {
       const url = await uploadProductImage(file)
       setForm((f) => ({ ...f, imageUrl: url }))
-      toast('Imagen lista')
+      toast('Imagen comprimida y lista')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'No se pudo subir')
     } finally {
@@ -264,7 +260,8 @@ export function InventoryPage() {
                   ) : null}
                 </div>
                 <div className="field-hint">
-                  En producción las imágenes van a Supabase Storage (no a la base de datos).
+                  Se comprime sola (~1200px JPEG) y se guarda en Storage, no en la base de
+                  datos.
                 </div>
               </div>
             </div>

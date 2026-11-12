@@ -70,6 +70,7 @@ En Supabase → Authentication → URL configuration, agrega:
    - `supabase/migrations/001_init.sql`
    - `supabase/migrations/002_fix_stores_returning.sql`
    - `supabase/migrations/003_ops_invites_void_sales.sql` (invites, anular ventas, Storage de imágenes)
+   - `supabase/migrations/004_product_images_limits.sql` (límite 1 MB + solo MIME de imagen)
 4. Copia:
    - **Project URL** → `SUPABASE_URL`
    - **Publishable key** (`sb_publishable_...`) → `SUPABASE_PUBLISHABLE_KEY`
