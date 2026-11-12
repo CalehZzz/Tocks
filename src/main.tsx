@@ -10,13 +10,16 @@ if (!root) {
   document.body.innerHTML =
     '<p style="font-family:sans-serif;padding:24px">No se encontró #root. Abre Tocks con <code>npm run dev</code>, no el HTML crudo.</p>'
 } else {
+  const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
+
   createRoot(root).render(
     <StrictMode>
       <ErrorBoundary>
-        <BrowserRouter>
+        <BrowserRouter basename={basename === '/' ? undefined : basename}>
           <App />
         </BrowserRouter>
       </ErrorBoundary>
     </StrictMode>,
   )
 }
+
