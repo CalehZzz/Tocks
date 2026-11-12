@@ -523,11 +523,12 @@ export const supabaseApi = {
   },
 
   async uploadProductImage(storeId: string, file: File): Promise<string> {
-    const ext = file.name.split('.').pop() || 'jpg'
-    const path = `${storeId}/${crypto.randomUUID()}.${ext}`
+    const { compressProductImage } = await import('./compressImage')
+    const compressed = await compressProductImage(file)
+    const path = `${storeId}/${crypto.randomUUID()}.jpg`
     const { error } = await client()
       .storage.from('product-images')
-      .upload(path, file, { upsert: false, contentType: file.type })
+      .upload(path, compressed, { upsert: false, contentType: 'image/jpeg' })
     if (error) throw error
     const { data } = client().storage.from('product-images').getPublicUrl(path)
     return data.publicUrl
