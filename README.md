@@ -43,6 +43,8 @@ Abre `http://localhost:5173/` (no el HTML crudo en GitHub).
 
 ## GitHub Pages (sitio público)
 
+Tras cambiar a **GitHub Actions**, vuelve a correr el workflow (o haz un push a `main`) para publicar el build nuevo.
+
 La URL del sitio: `https://calehzzz.github.io/Tocks/`
 
 1. En el repo: **Settings → Secrets and variables → Actions**, crea:
