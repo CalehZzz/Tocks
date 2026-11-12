@@ -38,6 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const session = await api.getSession()
         if (alive) setUser(session)
+      } catch (err) {
+        console.error('Auth bootstrap failed', err)
+        if (alive) setUser(null)
       } finally {
         if (alive) setLoading(false)
       }
@@ -45,8 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (supabase) {
       const { data } = supabase.auth.onAuthStateChange(async () => {
-        const session = await api.getSession()
-        if (alive) setUser(session)
+        try {
+          const session = await api.getSession()
+          if (alive) setUser(session)
+        } catch (err) {
+          console.error('Auth state refresh failed', err)
+        }
       })
       return () => {
         alive = false
