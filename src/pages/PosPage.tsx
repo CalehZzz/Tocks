@@ -160,6 +160,9 @@ export function PosPage() {
                   disabled={out}
                   title={out ? 'Sin stock' : 'Agregar al ticket'}
                 >
+                  {p.image_url ? (
+                    <img src={p.image_url} alt="" className="thumb" style={{ width: '100%', height: 72, borderRadius: 10 }} />
+                  ) : null}
                   <strong>{p.name}</strong>
                   <span className="meta">{money(p.price, store?.currency)}</span>
                   {out ? (
