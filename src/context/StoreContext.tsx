@@ -87,18 +87,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setStores([])
       return
     }
-    const list = await api.listStores()
-    setStores(list)
-    if (!list.length) {
-      setStoreIdState(null)
-      return
+    try {
+      const list = await api.listStores()
+      setStores(list)
+      if (!list.length) {
+        setStoreIdState(null)
+        return
+      }
+      const preferred =
+        list.find((s) => s.id === storeId) ||
+        list.find((s) => s.id === localStorage.getItem(ACTIVE_KEY)) ||
+        list[0]
+      setStoreIdState(preferred.id)
+      localStorage.setItem(ACTIVE_KEY, preferred.id)
+    } catch (err) {
+      console.error('Failed to load stores', err)
+      setStores([])
     }
-    const preferred =
-      list.find((s) => s.id === storeId) ||
-      list.find((s) => s.id === localStorage.getItem(ACTIVE_KEY)) ||
-      list[0]
-    setStoreIdState(preferred.id)
-    localStorage.setItem(ACTIVE_KEY, preferred.id)
   }, [user, storeId])
 
   const refreshStoreData = useCallback(async () => {
@@ -128,6 +133,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTrash(deleted.filter((p) => p.deleted_at))
       setSales(saleList)
       setStats(storeStats)
+    } catch (err) {
+      console.error('Failed to load store data', err)
     } finally {
       setLoading(false)
     }
