@@ -8,6 +8,8 @@ import type {
   Profile,
   Sale,
   Store,
+  StoreInvite,
+  StoreMember,
   StoreStats,
 } from '../types'
 
@@ -85,13 +87,48 @@ export const supabaseApi = {
     if (error) throw error
   },
 
+  async claimInvites() {
+    const { error } = await client().rpc('claim_store_invites')
+    if (error && !/function .* does not exist/i.test(error.message)) throw error
+  },
+
   async listStores(): Promise<Store[]> {
+    await supabaseApi.claimInvites().catch(() => undefined)
     const { data, error } = await client()
       .from('stores')
       .select('*')
+      .is('deleted_at', null)
       .order('created_at', { ascending: true })
     if (error) throw error
     return data || []
+  },
+
+  async getStoreBySlug(slug: string): Promise<Store | null> {
+    await supabaseApi.claimInvites().catch(() => undefined)
+    const { data, error } = await client()
+      .from('stores')
+      .select('*')
+      .eq('slug', slug)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async renameStore(storeId: string, name: string) {
+    const { error } = await client()
+      .from('stores')
+      .update({ name: name.trim() })
+      .eq('id', storeId)
+    if (error) throw error
+  },
+
+  async softDeleteStore(storeId: string) {
+    const { error } = await client()
+      .from('stores')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', storeId)
+    if (error) throw error
   },
 
   async createStore(name: string): Promise<Store> {
@@ -134,6 +171,7 @@ export const supabaseApi = {
       .from('locations')
       .select('*')
       .eq('store_id', storeId)
+      .is('deleted_at', null)
       .order('sort_order')
     if (error) throw error
     return data || []
@@ -144,6 +182,7 @@ export const supabaseApi = {
       .from('locations')
       .select('*', { count: 'exact', head: true })
       .eq('store_id', storeId)
+      .is('deleted_at', null)
     const { data, error } = await client()
       .from('locations')
       .insert({
@@ -156,6 +195,33 @@ export const supabaseApi = {
       .single()
     if (error) throw error
     return data as Location
+  },
+
+  async renameLocation(locationId: string, name: string, code?: string) {
+    const patch: Record<string, string> = { name: name.trim() }
+    if (code != null) patch.code = code.trim().toUpperCase()
+    const { error } = await client().from('locations').update(patch).eq('id', locationId)
+    if (error) throw error
+  },
+
+  async softDeleteLocation(locationId: string) {
+    const { data: loc, error: locErr } = await client()
+      .from('locations')
+      .select('store_id')
+      .eq('id', locationId)
+      .single()
+    if (locErr) throw locErr
+    const { count } = await client()
+      .from('locations')
+      .select('*', { count: 'exact', head: true })
+      .eq('store_id', loc.store_id)
+      .is('deleted_at', null)
+    if ((count || 0) <= 1) throw new Error('Debe quedar al menos una sede')
+    const { error } = await client()
+      .from('locations')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', locationId)
+    if (error) throw error
   },
 
   async listCategories(storeId: string): Promise<Category[]> {
@@ -176,6 +242,19 @@ export const supabaseApi = {
       .single()
     if (error) throw error
     return data as Category
+  },
+
+  async renameCategory(categoryId: string, name: string) {
+    const { error } = await client()
+      .from('categories')
+      .update({ name: name.trim() })
+      .eq('id', categoryId)
+    if (error) throw error
+  },
+
+  async deleteCategory(categoryId: string) {
+    const { error } = await client().from('categories').delete().eq('id', categoryId)
+    if (error) throw error
   },
 
   async listProducts(storeId: string, includeDeleted = false) {
@@ -311,13 +390,15 @@ export const supabaseApi = {
     return { ...(sale as Sale), items: saleItems || [] }
   },
 
-  async listSales(storeId: string): Promise<Sale[]> {
-    const { data, error } = await client()
+  async listSales(storeId: string, includeVoided = true): Promise<Sale[]> {
+    let q = client()
       .from('sales')
       .select('*')
       .eq('store_id', storeId)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(200)
+    if (!includeVoided) q = q.is('deleted_at', null)
+    const { data, error } = await q
     if (error) throw error
     const sales = (data || []) as Sale[]
     if (!sales.length) return []
@@ -335,8 +416,18 @@ export const supabaseApi = {
     }))
   },
 
+  async voidSale(saleId: string) {
+    const { error } = await client().rpc('void_sale', { p_sale_id: saleId })
+    if (error) throw error
+  },
+
+  async restoreSale(saleId: string) {
+    const { error } = await client().rpc('restore_sale', { p_sale_id: saleId })
+    if (error) throw error
+  },
+
   async getStats(storeId: string): Promise<StoreStats> {
-    const sales = await supabaseApi.listSales(storeId)
+    const sales = (await supabaseApi.listSales(storeId, true)).filter((s) => !s.deleted_at)
     const salesTotal = sales.reduce((a, s) => a + Number(s.total), 0)
     const costTotal = sales.reduce((a, s) => a + Number(s.cost_total), 0)
     const unitsSold = sales.reduce(
@@ -350,5 +441,104 @@ export const supabaseApi = {
       saleCount: sales.length,
       unitsSold,
     }
+  },
+
+  async listMembers(storeId: string): Promise<StoreMember[]> {
+    const { data, error } = await client()
+      .from('store_members')
+      .select('store_id, user_id, role')
+      .eq('store_id', storeId)
+    if (error) throw error
+    const members = data || []
+    if (!members.length) return []
+    const ids = members.map((m) => m.user_id)
+    const { data: profiles } = await client()
+      .from('profiles')
+      .select('id, email, display_name')
+      .in('id', ids)
+    return members.map((m) => {
+      const p = (profiles || []).find((x) => x.id === m.user_id)
+      return {
+        ...m,
+        email: p?.email || null,
+        display_name: p?.display_name || null,
+      } as StoreMember
+    })
+  },
+
+  async getMyRole(storeId: string): Promise<StoreMember['role'] | null> {
+    const user = await requireUserId()
+    const { data, error } = await client()
+      .from('store_members')
+      .select('role')
+      .eq('store_id', storeId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (error) throw error
+    return (data?.role as StoreMember['role']) || null
+  },
+
+  async listInvites(storeId: string): Promise<StoreInvite[]> {
+    const { data, error } = await client()
+      .from('store_invites')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []) as StoreInvite[]
+  },
+
+  async createInvite(
+    storeId: string,
+    input: { email: string; display_name: string; role: 'admin' | 'staff' },
+  ) {
+    const user = await requireUserId()
+    const { data, error } = await client()
+      .from('store_invites')
+      .insert({
+        store_id: storeId,
+        email: input.email.trim().toLowerCase(),
+        display_name: input.display_name.trim(),
+        role: input.role,
+        created_by: user.id,
+      })
+      .select('*')
+      .single()
+    if (error) throw error
+    return data as StoreInvite
+  },
+
+  async deleteInvite(inviteId: string) {
+    const { error } = await client().from('store_invites').delete().eq('id', inviteId)
+    if (error) throw error
+  },
+
+  async removeMember(storeId: string, userId: string) {
+    const { error } = await client()
+      .from('store_members')
+      .delete()
+      .eq('store_id', storeId)
+      .eq('user_id', userId)
+    if (error) throw error
+  },
+
+  async uploadProductImage(storeId: string, file: File): Promise<string> {
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${storeId}/${crypto.randomUUID()}.${ext}`
+    const { error } = await client()
+      .storage.from('product-images')
+      .upload(path, file, { upsert: false, contentType: file.type })
+    if (error) throw error
+    const { data } = client().storage.from('product-images').getPublicUrl(path)
+    return data.publicUrl
+  },
+
+  async updateProfile(patch: { display_name?: string }) {
+    const user = await requireUserId()
+    const { error } = await client()
+      .from('profiles')
+      .update(patch)
+      .eq('id', user.id)
+    if (error) throw error
   },
 }

@@ -13,6 +13,7 @@ export interface Store {
   currency: string
   owner_id: string
   created_at: string
+  deleted_at?: string | null
 }
 
 export interface Location {
@@ -21,6 +22,25 @@ export interface Location {
   name: string
   code: string
   sort_order: number
+  deleted_at?: string | null
+}
+
+export interface StoreInvite {
+  id: string
+  store_id: string
+  email: string
+  display_name: string
+  role: 'admin' | 'staff'
+  created_at: string
+  accepted_at: string | null
+}
+
+export interface StoreMember {
+  store_id: string
+  user_id: string
+  role: MemberRole
+  email?: string | null
+  display_name?: string | null
 }
 
 export interface Category {
@@ -59,6 +79,8 @@ export interface Sale {
   total: number
   cost_total: number
   created_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
   items?: SaleItem[]
 }
 

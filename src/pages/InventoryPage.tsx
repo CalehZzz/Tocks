@@ -1,8 +1,41 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { DollarSign, Package, PackagePlus, Search, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  DollarSign,
+  ImagePlus,
+  Package,
+  PackagePlus,
+  Pencil,
+  Search,
+  Trash2,
+} from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { money } from '../lib/money'
 import { useToast } from '../components/Toast'
+import { ConfirmTypeModal } from '../components/ConfirmTypeModal'
+import type { Product } from '../types'
+
+type FormState = {
+  name: string
+  description: string
+  cost: string
+  price: string
+  discount: string
+  categoryId: string
+  imageUrl: string | null
+  stockMap: Record<string, string>
+}
+
+const emptyForm = (): FormState => ({
+  name: '',
+  description: '',
+  cost: '',
+  price: '',
+  discount: '0',
+  categoryId: '',
+  imageUrl: null,
+  stockMap: {},
+})
 
 export function InventoryPage() {
   const {
@@ -11,22 +44,20 @@ export function InventoryPage() {
     locations,
     categories,
     createProduct,
-    createCategory,
     softDeleteProduct,
     updateProduct,
+    uploadProductImage,
   } = useStore()
   const toast = useToast()
   const [query, setQuery] = useState('')
   const [showForm, setShowForm] = useState(false)
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [cost, setCost] = useState('')
-  const [price, setPrice] = useState('')
-  const [discount, setDiscount] = useState('0')
-  const [categoryId, setCategoryId] = useState('')
-  const [newCategory, setNewCategory] = useState('')
-  const [stockMap, setStockMap] = useState<Record<string, string>>({})
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState<FormState>(emptyForm())
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  const deleting = products.find((p) => p.id === deleteId) || null
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -38,40 +69,79 @@ export function InventoryPage() {
     )
   }, [products, query])
 
-  async function onCreate(e: FormEvent) {
+  function openCreate() {
+    setEditingId(null)
+    setForm(emptyForm())
+    setShowForm(true)
+  }
+
+  function openEdit(p: Product) {
+    const stockMap: Record<string, string> = {}
+    for (const loc of locations) {
+      stockMap[loc.id] = String(p.stock?.[loc.id] ?? 0)
+    }
+    setEditingId(p.id)
+    setForm({
+      name: p.name,
+      description: p.description || '',
+      cost: String(p.cost),
+      price: String(p.price),
+      discount: String(p.discount_pct || 0),
+      categoryId: p.category_id || '',
+      imageUrl: p.image_url,
+      stockMap,
+    })
+    setShowForm(true)
+  }
+
+  async function onImage(file: File | null) {
+    if (!file) return
+    if (file.size > 2_500_000) {
+      toast('Imagen muy grande (máx ~2.5 MB). Comprime o usa Storage.')
+      return
+    }
+    setUploading(true)
+    try {
+      const url = await uploadProductImage(file)
+      setForm((f) => ({ ...f, imageUrl: url }))
+      toast('Imagen lista')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'No se pudo subir')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
     try {
-      let cat = categoryId || null
-      if (newCategory.trim()) {
-        const created = await createCategory(newCategory.trim())
-        cat = created.id
-      }
       const stockByLocation: Record<string, number> = {}
       for (const loc of locations) {
-        stockByLocation[loc.id] = Number(stockMap[loc.id] || 0)
+        stockByLocation[loc.id] = Number(form.stockMap[loc.id] || 0)
       }
-      await createProduct({
-        name,
-        description,
-        cost: Number(cost),
-        price: Number(price),
-        discount_pct: Number(discount) || 0,
-        category_id: cat,
+      const payload = {
+        name: form.name,
+        description: form.description,
+        cost: Number(form.cost),
+        price: Number(form.price),
+        discount_pct: Number(form.discount) || 0,
+        category_id: form.categoryId || null,
+        image_url: form.imageUrl,
         stockByLocation,
-      })
-      setName('')
-      setDescription('')
-      setCost('')
-      setPrice('')
-      setDiscount('0')
-      setCategoryId('')
-      setNewCategory('')
-      setStockMap({})
+      }
+      if (editingId) {
+        await updateProduct(editingId, payload)
+        toast('Producto actualizado')
+      } else {
+        await createProduct(payload)
+        toast('Producto guardado')
+      }
+      setForm(emptyForm())
+      setEditingId(null)
       setShowForm(false)
-      toast('Producto guardado')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Error al crear')
+      toast(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setBusy(false)
     }
@@ -91,6 +161,11 @@ export function InventoryPage() {
     toast('Stock actualizado')
   }
 
+  function catName(id: string | null) {
+    if (!id) return null
+    return categories.find((c) => c.id === id)?.name || null
+  }
+
   return (
     <div>
       <div className="topbar">
@@ -107,7 +182,11 @@ export function InventoryPage() {
               placeholder="Buscar producto…"
             />
           </label>
-          <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => (showForm ? (setShowForm(false), setEditingId(null)) : openCreate())}
+          >
             <PackagePlus size={16} />
             {showForm ? 'Cerrar' : 'Nuevo producto'}
           </button>
@@ -115,14 +194,17 @@ export function InventoryPage() {
       </div>
 
       {showForm ? (
-        <form className="panel panel-pad" onSubmit={onCreate} style={{ marginBottom: 16 }}>
+        <form className="panel panel-pad" onSubmit={onSubmit} style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0, fontFamily: 'var(--display)' }}>
+            {editingId ? 'Editar producto' : 'Nuevo producto'}
+          </h3>
           <div className="grid-2">
             <div>
               <div className="field">
                 <label>Nombre</label>
                 <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Ej. Resistencia 10k"
                   required
                 />
@@ -131,14 +213,17 @@ export function InventoryPage() {
                 <label>Descripción</label>
                 <textarea
                   rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Opcional: detalles del producto"
                 />
               </div>
               <div className="field">
                 <label>Categoría</label>
-                <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <select
+                  value={form.categoryId}
+                  onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
+                >
                   <option value="">Sin categoría</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -146,14 +231,41 @@ export function InventoryPage() {
                     </option>
                   ))}
                 </select>
+                <div className="field-hint">
+                  ¿Necesitas otra?{' '}
+                  <Link to="/categories">Crear categorías aquí</Link>
+                </div>
               </div>
               <div className="field">
-                <label>O nueva categoría</label>
-                <input
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="Ej. Componentes"
-                />
+                <label>Imagen</label>
+                <div className="toolbar">
+                  {form.imageUrl ? (
+                    <img src={form.imageUrl} alt="" className="thumb" />
+                  ) : null}
+                  <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }}>
+                    <ImagePlus size={14} />
+                    {uploading ? 'Subiendo…' : 'Subir imagen'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      disabled={uploading}
+                      onChange={(e) => void onImage(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                  {form.imageUrl ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setForm((f) => ({ ...f, imageUrl: null }))}
+                    >
+                      Quitar
+                    </button>
+                  ) : null}
+                </div>
+                <div className="field-hint">
+                  En producción las imágenes van a Supabase Storage (no a la base de datos).
+                </div>
               </div>
             </div>
             <div>
@@ -165,13 +277,12 @@ export function InventoryPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    value={cost}
-                    onChange={(e) => setCost(e.target.value)}
+                    value={form.cost}
+                    onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
                     placeholder="0.50"
                     required
                   />
                 </div>
-                <div className="field-hint">Lo que te cuesta a ti. Ej: 0.50</div>
               </div>
               <div className="field">
                 <label>Precio de venta</label>
@@ -181,13 +292,12 @@ export function InventoryPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    value={form.price}
+                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
                     placeholder="1.25"
                     required
                   />
                 </div>
-                <div className="field-hint">Lo que cobras al cliente. Ej: 1.25</div>
               </div>
               <div className="field">
                 <label>Descuento tienda %</label>
@@ -196,8 +306,8 @@ export function InventoryPage() {
                   min="0"
                   max="100"
                   step="0.01"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
+                  value={form.discount}
+                  onChange={(e) => setForm((f) => ({ ...f, discount: e.target.value }))}
                   placeholder="0"
                 />
               </div>
@@ -207,9 +317,12 @@ export function InventoryPage() {
                   <input
                     type="number"
                     min="0"
-                    value={stockMap[loc.id] || ''}
+                    value={form.stockMap[loc.id] || ''}
                     onChange={(e) =>
-                      setStockMap((m) => ({ ...m, [loc.id]: e.target.value }))
+                      setForm((f) => ({
+                        ...f,
+                        stockMap: { ...f.stockMap, [loc.id]: e.target.value },
+                      }))
                     }
                     placeholder="0"
                   />
@@ -217,9 +330,9 @@ export function InventoryPage() {
               ))}
             </div>
           </div>
-          <button className="btn btn-primary" disabled={busy}>
+          <button className="btn btn-primary" disabled={busy || uploading}>
             <Package size={16} />
-            {busy ? 'Guardando…' : 'Guardar producto'}
+            {busy ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Guardar producto'}
           </button>
         </form>
       ) : null}
@@ -242,14 +355,26 @@ export function InventoryPage() {
               {filtered.map((p) => (
                 <tr key={p.id}>
                   <td>
-                    <strong>{p.name}</strong>
-                    {p.discount_pct > 0 ? (
-                      <span className="badge" style={{ marginLeft: 8 }}>
-                        -{p.discount_pct}%
-                      </span>
-                    ) : null}
-                    <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-                      {p.description || 'Sin descripción'}
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="" className="thumb" />
+                      ) : null}
+                      <div>
+                        <strong>{p.name}</strong>
+                        {p.discount_pct > 0 ? (
+                          <span className="badge" style={{ marginLeft: 8 }}>
+                            -{p.discount_pct}%
+                          </span>
+                        ) : null}
+                        {catName(p.category_id) ? (
+                          <span className="badge badge-muted" style={{ marginLeft: 8 }}>
+                            {catName(p.category_id)}
+                          </span>
+                        ) : null}
+                        <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                          {p.description || 'Sin descripción'}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td>{money(p.price, store?.currency)}</td>
@@ -258,6 +383,7 @@ export function InventoryPage() {
                     <td key={l.id}>
                       <button
                         className="btn btn-ghost btn-sm"
+                        type="button"
                         onClick={() => void quickRestock(p.id, l.id)}
                         title="Sumar stock"
                       >
@@ -266,15 +392,24 @@ export function InventoryPage() {
                     </td>
                   ))}
                   <td>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() =>
-                        void softDeleteProduct(p.id).then(() => toast('Movido a papelera'))
-                      }
-                    >
-                      <Trash2 size={14} />
-                      Quitar
-                    </button>
+                    <div className="toolbar">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => openEdit(p)}
+                      >
+                        <Pencil size={14} />
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        type="button"
+                        onClick={() => setDeleteId(p.id)}
+                      >
+                        <Trash2 size={14} />
+                        Quitar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -294,6 +429,19 @@ export function InventoryPage() {
           </table>
         </div>
       </div>
+
+      <ConfirmTypeModal
+        open={Boolean(deleting)}
+        title="Eliminar producto"
+        dangerText={`Vas a mover “${deleting?.name || ''}” a la papelera. Ya no aparecerá en inventario ni en la caja.`}
+        confirmLabel="Eliminar producto"
+        onClose={() => setDeleteId(null)}
+        onConfirm={async () => {
+          if (!deleting) return
+          await softDeleteProduct(deleting.id)
+          toast('Movido a papelera')
+        }}
+      />
     </div>
   )
 }

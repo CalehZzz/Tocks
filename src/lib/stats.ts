@@ -12,15 +12,20 @@ export function filterSalesByMonth(
   sales: Sale[],
   year: number,
   month: number,
+  opts?: { includeVoided?: boolean },
 ): Sale[] {
   const key = `${year}-${String(month).padStart(2, '0')}`
-  return sales.filter((s) => saleMonthKey(s) === key)
+  return sales.filter((s) => {
+    if (!opts?.includeVoided && s.deleted_at) return false
+    return saleMonthKey(s) === key
+  })
 }
 
 export function computeStats(sales: Sale[]): StoreStats {
-  const salesTotal = sales.reduce((a, s) => a + Number(s.total), 0)
-  const costTotal = sales.reduce((a, s) => a + Number(s.cost_total), 0)
-  const unitsSold = sales.reduce(
+  const active = sales.filter((s) => !s.deleted_at)
+  const salesTotal = active.reduce((a, s) => a + Number(s.total), 0)
+  const costTotal = active.reduce((a, s) => a + Number(s.cost_total), 0)
+  const unitsSold = active.reduce(
     (a, s) => a + (s.items || []).reduce((b, i) => b + i.qty, 0),
     0,
   )
@@ -28,7 +33,7 @@ export function computeStats(sales: Sale[]): StoreStats {
     salesTotal,
     costTotal,
     profit: salesTotal - costTotal,
-    saleCount: sales.length,
+    saleCount: active.length,
     unitsSold,
   }
 }

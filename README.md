@@ -10,12 +10,13 @@ Cuando configures Supabase, la misma UI pasa a datos reales multi-tenant.
 
 ### Qué incluye
 
-- Auth (registro / login)
-- Crear una o varias tiendas por usuario
-- Sedes (locations) por tienda
-- Inventario: productos, stock por sede, categorías, papelera
-- Caja POS por sede con descuento
-- Historial de ventas + estadísticas básicas
+- Auth (registro / login) y perfil de cuenta
+- Crear / renombrar / borrar negocios y sedes (confirmación tipando `confirmar`)
+- Inventario: editar productos, imágenes (Supabase Storage), papelera
+- Categorías en apartado propio
+- Caja POS en ruta aparte compartible (`/caja/:slug`) + invitaciones por correo
+- Anular / restaurar ventas (stock y estadísticas se actualizan)
+- Estadísticas mensuales (solo ventas activas)
 
 ### Aún no (próximas iteraciones)
 
@@ -65,7 +66,10 @@ En Supabase → Authentication → URL configuration, agrega:
 1. Crea un proyecto en Supabase.
 2. En **Authentication → Providers**, deja Email habilitado.
    - Para demo rápida: desactiva “Confirm email” si quieres entrar sin verificar.
-3. Corre el schema: `supabase/migrations/001_init.sql` en el SQL Editor (o `supabase db push`).
+3. Corre las migraciones en el SQL Editor (en orden):
+   - `supabase/migrations/001_init.sql`
+   - `supabase/migrations/002_fix_stores_returning.sql`
+   - `supabase/migrations/003_ops_invites_void_sales.sql` (invites, anular ventas, Storage de imágenes)
 4. Copia:
    - **Project URL** → `SUPABASE_URL`
    - **Publishable key** (`sb_publishable_...`) → `SUPABASE_PUBLISHABLE_KEY`

@@ -35,7 +35,8 @@ export function StatsPage() {
         <div>
           <h1 className="page-title">Estadísticas</h1>
           <p className="page-sub">
-            {MONTH_NAMES[month - 1]} {year} · {store?.name}
+            {MONTH_NAMES[month - 1]} {year} · {store?.name} · solo ventas activas
+            (anuladas no suman)
           </p>
         </div>
         <div className="filters">
