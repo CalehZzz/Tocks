@@ -1,12 +1,29 @@
 import { useState, type FormEvent } from 'react'
+import {
+  Building2,
+  MapPin,
+  Plus,
+  RotateCcw,
+  Store,
+  Trash2,
+} from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { useToast } from '../components/Toast'
 import { backendMode } from '../lib/api'
 import { demoApi } from '../lib/demoStore'
+import { slugify } from '../lib/id'
 
 export function SettingsPage() {
-  const { store, locations, trash, createLocation, restoreProduct, createStore, stores } =
-    useStore()
+  const {
+    store,
+    locations,
+    trash,
+    createLocation,
+    restoreProduct,
+    createStore,
+    stores,
+    setStoreId,
+  } = useStore()
   const toast = useToast()
   const [locName, setLocName] = useState('')
   const [locCode, setLocCode] = useState('')
@@ -14,7 +31,11 @@ export function SettingsPage() {
 
   async function addLocation(e: FormEvent) {
     e.preventDefault()
-    await createLocation(locName, locCode)
+    const code =
+      locCode.trim() ||
+      slugify(locName).slice(0, 8).toUpperCase().replace(/-/g, '') ||
+      'SEDE'
+    await createLocation(locName, code)
     setLocName('')
     setLocCode('')
     toast('Sede agregada')
@@ -22,9 +43,10 @@ export function SettingsPage() {
 
   async function addStore(e: FormEvent) {
     e.preventDefault()
-    await createStore(newStore)
+    const created = await createStore(newStore)
+    setStoreId(created.id)
     setNewStore('')
-    toast('Tienda creada')
+    toast('Negocio creado')
   }
 
   return (
@@ -32,53 +54,89 @@ export function SettingsPage() {
       <div className="topbar">
         <div>
           <h1 className="page-title">Configuración</h1>
-          <p className="page-sub">Sedes, tiendas y papelera · modo {backendMode}</p>
+          <p className="page-sub">
+            Sedes y negocios · {backendMode === 'supabase' ? 'Supabase' : 'Demo local'}
+          </p>
         </div>
       </div>
 
       <div className="grid-2">
         <div className="panel panel-pad">
-          <h3 style={{ marginTop: 0, fontFamily: 'var(--font-display)' }}>Sedes</h3>
-          <ul>
+          <h3 style={{ marginTop: 0, fontFamily: 'var(--display)', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <MapPin size={18} />
+            Sedes
+          </h3>
+          <p className="page-sub" style={{ marginBottom: 12 }}>
+            Empiezas con una. Agrega más solo si vendes en varios lugares.
+          </p>
+          <ul style={{ paddingLeft: 18, marginTop: 0 }}>
             {locations.map((l) => (
-              <li key={l.id}>
-                <strong>{l.name}</strong> <span className="badge">{l.code}</span>
+              <li key={l.id} style={{ marginBottom: 6 }}>
+                <strong>{l.name}</strong>{' '}
+                <span className="badge badge-muted">{l.code}</span>
               </li>
             ))}
           </ul>
           <form onSubmit={addLocation}>
             <div className="field">
-              <label>Nombre</label>
-              <input value={locName} onChange={(e) => setLocName(e.target.value)} required />
-            </div>
-            <div className="field">
-              <label>Código</label>
+              <label>Nombre de la sede</label>
               <input
-                value={locCode}
-                onChange={(e) => setLocCode(e.target.value)}
-                placeholder="CDB"
+                value={locName}
+                onChange={(e) => setLocName(e.target.value)}
+                placeholder="Ej. Sucursal Centro"
                 required
               />
             </div>
-            <button className="btn btn-primary">Agregar sede</button>
+            <div className="field">
+              <label>Código (opcional)</label>
+              <input
+                value={locCode}
+                onChange={(e) => setLocCode(e.target.value)}
+                placeholder="Se genera solo si lo dejas vacío"
+              />
+            </div>
+            <button className="btn btn-primary">
+              <Plus size={16} />
+              Agregar sede
+            </button>
           </form>
         </div>
 
         <div className="panel panel-pad">
-          <h3 style={{ marginTop: 0, fontFamily: 'var(--font-display)' }}>Tus tiendas</h3>
-          <ul>
+          <h3 style={{ marginTop: 0, fontFamily: 'var(--display)', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Store size={18} />
+            Negocios
+          </h3>
+          <ul style={{ paddingLeft: 18, marginTop: 0 }}>
             {stores.map((s) => (
-              <li key={s.id}>
-                {s.name} {s.id === store?.id ? <span className="badge">activa</span> : null}
+              <li key={s.id} style={{ marginBottom: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setStoreId(s.id)}
+                  style={{ marginRight: 6 }}
+                >
+                  <Building2 size={14} />
+                  {s.name}
+                </button>
+                {s.id === store?.id ? <span className="badge">activo</span> : null}
               </li>
             ))}
           </ul>
           <form onSubmit={addStore}>
             <div className="field">
-              <label>Nueva tienda</label>
-              <input value={newStore} onChange={(e) => setNewStore(e.target.value)} required />
+              <label>Nuevo negocio</label>
+              <input
+                value={newStore}
+                onChange={(e) => setNewStore(e.target.value)}
+                placeholder="Ej. Tocks Cafe"
+                required
+              />
             </div>
-            <button className="btn btn-primary">Crear otra tienda</button>
+            <button className="btn btn-primary">
+              <Plus size={16} />
+              Crear negocio
+            </button>
           </form>
 
           {backendMode === 'demo' ? (
@@ -90,14 +148,18 @@ export function SettingsPage() {
                 window.location.reload()
               }}
             >
+              <RotateCcw size={16} />
               Reset demo local
             </button>
           ) : null}
         </div>
       </div>
 
-      <div className="panel panel-pad" style={{ marginTop: 18 }}>
-        <h3 style={{ marginTop: 0, fontFamily: 'var(--font-display)' }}>Papelera</h3>
+      <div className="panel panel-pad" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0, fontFamily: 'var(--display)', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Trash2 size={18} />
+          Papelera
+        </h3>
         {!trash.length ? (
           <div className="empty">No hay productos eliminados.</div>
         ) : (
@@ -120,6 +182,7 @@ export function SettingsPage() {
                           void restoreProduct(p.id).then(() => toast('Producto restaurado'))
                         }
                       >
+                        <RotateCcw size={14} />
                         Restaurar
                       </button>
                     </td>

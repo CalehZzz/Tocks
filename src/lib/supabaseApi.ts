@@ -118,20 +118,12 @@ export const supabaseApi = {
         .single()
       if (fetchError || !data) throw fetchError || new Error('Tienda creada pero no legible')
 
-      await client().from('locations').insert([
-        {
-          store_id: data.id,
-          name: 'Sede principal',
-          code: 'MAIN',
-          sort_order: 0,
-        },
-        {
-          store_id: data.id,
-          name: 'Sede 2',
-          code: 'S2',
-          sort_order: 1,
-        },
-      ])
+      await client().from('locations').insert({
+        store_id: data.id,
+        name: 'Sede principal',
+        code: 'MAIN',
+        sort_order: 0,
+      })
       return data
     }
     throw new Error('No se pudo crear un slug único')

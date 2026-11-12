@@ -155,21 +155,13 @@ export const demoApi = {
     db.stores.push(store)
     db.members.push({ store_id: store.id, user_id: owner, role: 'owner' })
 
-    const locA: Location = {
+    db.locations.push({
       id: uid('loc'),
       store_id: store.id,
       name: 'Sede principal',
       code: 'MAIN',
       sort_order: 0,
-    }
-    const locB: Location = {
-      id: uid('loc'),
-      store_id: store.id,
-      name: 'Sede 2',
-      code: 'S2',
-      sort_order: 1,
-    }
-    db.locations.push(locA, locB)
+    })
     save(db)
     return store
   },
