@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Store } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { useToast } from '../components/Toast'
 
@@ -15,9 +16,9 @@ export function OnboardingPage() {
     setError('')
     try {
       await createStore(name)
-      toast('Tienda creada')
+      toast('Negocio listo')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la tienda')
+      setError(err instanceof Error ? err.message : 'No se pudo crear')
     } finally {
       setBusy(false)
     }
@@ -27,27 +28,27 @@ export function OnboardingPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-hero">
-          <div className="brand-mark">Tk</div>
-          <h1>Crea tu tienda</h1>
-          <p>
-            Sin suscripción en esta demo: añade tu negocio y empieza a gestionar
-            inventario y caja.
-          </p>
+          <div className="brand-mark">
+            <Store size={22} />
+          </div>
+          <h1>Tu primer negocio</h1>
+          <p>Empieza con una sede. Luego puedes agregar más si las necesitas.</p>
         </div>
         <div className="auth-body">
           {error ? <div className="error-box">{error}</div> : null}
           <form onSubmit={onSubmit}>
             <div className="field">
-              <label>Nombre de la tienda</label>
+              <label>Nombre del negocio</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej. Electro Norte"
                 required
               />
+              <div className="field-hint">Se creará con 1 sede: “Sede principal”.</div>
             </div>
             <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
-              {busy ? 'Creando…' : 'Crear tienda'}
+              {busy ? 'Creando…' : 'Crear negocio'}
             </button>
           </form>
         </div>

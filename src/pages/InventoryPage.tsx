@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { DollarSign, Package, PackagePlus, Search, Trash2 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { money } from '../lib/money'
 import { useToast } from '../components/Toast'
@@ -68,7 +69,7 @@ export function InventoryPage() {
       setNewCategory('')
       setStockMap({})
       setShowForm(false)
-      toast('Producto creado')
+      toast('Producto guardado')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Error al crear')
     } finally {
@@ -80,7 +81,9 @@ export function InventoryPage() {
     const product = products.find((p) => p.id === productId)
     if (!product) return
     const current = product.stock?.[locationId] || 0
-    const add = Number(prompt('Cantidad a sumar', '1'))
+    const raw = window.prompt('Cantidad a sumar', '1')
+    if (raw == null) return
+    const add = Number(raw)
     if (!Number.isFinite(add) || add <= 0) return
     await updateProduct(productId, {
       stockByLocation: { ...product.stock, [locationId]: current + add },
@@ -93,35 +96,36 @@ export function InventoryPage() {
       <div className="topbar">
         <div>
           <h1 className="page-title">Inventario</h1>
-          <p className="page-sub">
-            Productos de {store?.name}. Stock por sede, costo y precio.
-          </p>
+          <p className="page-sub">Productos y stock de {store?.name}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar…"
-            style={{
-              borderRadius: 999,
-              border: '1px solid var(--line)',
-              padding: '9px 14px',
-              background: 'rgba(255,255,255,.75)',
-            }}
-          />
+        <div className="toolbar">
+          <label className="search-input">
+            <Search size={16} color="var(--muted)" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar producto…"
+            />
+          </label>
           <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
-            {showForm ? 'Cerrar' : 'Agregar producto'}
+            <PackagePlus size={16} />
+            {showForm ? 'Cerrar' : 'Nuevo producto'}
           </button>
         </div>
       </div>
 
       {showForm ? (
-        <form className="panel panel-pad" onSubmit={onCreate} style={{ marginBottom: 18 }}>
+        <form className="panel panel-pad" onSubmit={onCreate} style={{ marginBottom: 16 }}>
           <div className="grid-2">
             <div>
               <div className="field">
                 <label>Nombre</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} required />
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej. Resistencia 10k"
+                  required
+                />
               </div>
               <div className="field">
                 <label>Descripción</label>
@@ -129,10 +133,11 @@ export function InventoryPage() {
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Opcional: detalles del producto"
                 />
               </div>
               <div className="field">
-                <label>Categoría existente</label>
+                <label>Categoría</label>
                 <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                   <option value="">Sin categoría</option>
                   {categories.map((c) => (
@@ -143,36 +148,46 @@ export function InventoryPage() {
                 </select>
               </div>
               <div className="field">
-                <label>O crear categoría</label>
+                <label>O nueva categoría</label>
                 <input
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="Ej. Resistencias"
+                  placeholder="Ej. Componentes"
                 />
               </div>
             </div>
             <div>
               <div className="field">
                 <label>Costo</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={cost}
-                  onChange={(e) => setCost(e.target.value)}
-                  required
-                />
+                <div className="money-input">
+                  <DollarSign size={18} />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
+                    placeholder="0.50"
+                    required
+                  />
+                </div>
+                <div className="field-hint">Lo que te cuesta a ti. Ej: 0.50</div>
               </div>
               <div className="field">
-                <label>Precio</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  required
-                />
+                <label>Precio de venta</label>
+                <div className="money-input">
+                  <DollarSign size={18} />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="1.25"
+                    required
+                  />
+                </div>
+                <div className="field-hint">Lo que cobras al cliente. Ej: 1.25</div>
               </div>
               <div className="field">
                 <label>Descuento tienda %</label>
@@ -183,6 +198,7 @@ export function InventoryPage() {
                   step="0.01"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
+                  placeholder="0"
                 />
               </div>
               {locations.map((loc) => (
@@ -195,12 +211,14 @@ export function InventoryPage() {
                     onChange={(e) =>
                       setStockMap((m) => ({ ...m, [loc.id]: e.target.value }))
                     }
+                    placeholder="0"
                   />
                 </div>
               ))}
             </div>
           </div>
           <button className="btn btn-primary" disabled={busy}>
+            <Package size={16} />
             {busy ? 'Guardando…' : 'Guardar producto'}
           </button>
         </form>
@@ -231,7 +249,7 @@ export function InventoryPage() {
                       </span>
                     ) : null}
                     <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-                      {p.description || '—'}
+                      {p.description || 'Sin descripción'}
                     </div>
                   </td>
                   <td>{money(p.price, store?.currency)}</td>
@@ -250,17 +268,25 @@ export function InventoryPage() {
                   <td>
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() => void softDeleteProduct(p.id).then(() => toast('En papelera'))}
+                      onClick={() =>
+                        void softDeleteProduct(p.id).then(() => toast('Movido a papelera'))
+                      }
                     >
-                      Eliminar
+                      <Trash2 size={14} />
+                      Quitar
                     </button>
                   </td>
                 </tr>
               ))}
               {!filtered.length ? (
                 <tr>
-                  <td colSpan={5 + locations.length} className="empty">
-                    Aún no hay productos. Agrega el primero.
+                  <td colSpan={4 + locations.length}>
+                    <div className="empty">
+                      <div className="empty-icon">
+                        <Package size={22} />
+                      </div>
+                      Aún no hay productos. Crea el primero.
+                    </div>
                   </td>
                 </tr>
               ) : null}

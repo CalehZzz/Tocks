@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { KeyRound, Mail, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export function AuthPage() {
@@ -30,10 +31,7 @@ export function AuthPage() {
         <div className="auth-hero">
           <div className="brand-mark">Tk</div>
           <h1>Tocks</h1>
-          <p>
-            Inventario, caja y ventas para tu tienda. Demo multi-tenant lista
-            para conectar a Supabase.
-          </p>
+          <p>Inventario y caja para tu negocio. Simple y claro.</p>
         </div>
         <div className="auth-body">
           <div className="mode-pill" style={{ marginBottom: 14, color: 'var(--ink)' }}>
@@ -45,47 +43,52 @@ export function AuthPage() {
             {mode === 'signup' ? (
               <div className="field">
                 <label>Nombre</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Tu nombre"
-                  required
-                />
+                <div className="search-input" style={{ borderRadius: 12, minWidth: 0 }}>
+                  <User size={16} color="var(--muted)" />
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Tu nombre"
+                    required
+                  />
+                </div>
               </div>
             ) : null}
             <div className="field">
               <label>Correo</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
-                required
-              />
+              <div className="search-input" style={{ borderRadius: 12, minWidth: 0 }}>
+                <Mail size={16} color="var(--muted)" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@correo.com"
+                  required
+                />
+              </div>
             </div>
             <div className="field">
               <label>Contraseña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                minLength={6}
-                required
-              />
+              <div className="search-input" style={{ borderRadius: 12, minWidth: 0 }}>
+                <KeyRound size={16} color="var(--muted)" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  minLength={6}
+                  required
+                />
+              </div>
             </div>
             <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
-              {busy
-                ? 'Espera…'
-                : mode === 'login'
-                  ? 'Entrar'
-                  : 'Crear cuenta y empezar'}
+              {busy ? 'Espera…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}
             </button>
           </form>
           <div className="auth-switch">
             {mode === 'login' ? (
               <>
-                ¿Nuevo en Tocks?{' '}
+                ¿Nuevo?{' '}
                 <button type="button" onClick={() => setMode('signup')}>
                   Crear cuenta
                 </button>
