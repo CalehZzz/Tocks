@@ -97,38 +97,42 @@ export const supabaseApi = {
   async createStore(name: string): Promise<Store> {
     const user = await requireUserId()
     const base = slugify(name) || 'tienda'
-    let slug = base
     for (let i = 0; i < 8; i++) {
-      const candidate = i === 0 ? slug : `${base}-${i + 1}`
-      const { data, error } = await client()
-        .from('stores')
-        .insert({
-          name: name.trim(),
-          slug: candidate,
-          owner_id: user.id,
-          currency: 'USD',
-        })
-        .select('*')
-        .single()
-      if (!error && data) {
-        await client().from('locations').insert([
-          {
-            store_id: data.id,
-            name: 'Sede principal',
-            code: 'MAIN',
-            sort_order: 0,
-          },
-          {
-            store_id: data.id,
-            name: 'Sede 2',
-            code: 'S2',
-            sort_order: 1,
-          },
-        ])
-        return data
+      const candidate = i === 0 ? base : `${base}-${i + 1}`
+      // Insert without RETURNING: SELECT RLS can race the membership trigger.
+      const { error } = await client().from('stores').insert({
+        name: name.trim(),
+        slug: candidate,
+        owner_id: user.id,
+        currency: 'USD',
+      })
+      if (error) {
+        if (/duplicate|unique/i.test(error.message)) continue
+        throw error
       }
-      if (error && !/duplicate|unique/i.test(error.message)) throw error
-      slug = candidate
+
+      const { data, error: fetchError } = await client()
+        .from('stores')
+        .select('*')
+        .eq('slug', candidate)
+        .single()
+      if (fetchError || !data) throw fetchError || new Error('Tienda creada pero no legible')
+
+      await client().from('locations').insert([
+        {
+          store_id: data.id,
+          name: 'Sede principal',
+          code: 'MAIN',
+          sort_order: 0,
+        },
+        {
+          store_id: data.id,
+          name: 'Sede 2',
+          code: 'S2',
+          sort_order: 1,
+        },
+      ])
+      return data
     }
     throw new Error('No se pudo crear un slug único')
   },
