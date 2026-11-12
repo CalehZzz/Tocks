@@ -39,6 +39,25 @@ cp .env.example .env.local
 npm run dev
 ```
 
+Abre `http://localhost:5173/` (no el HTML crudo en GitHub).
+
+## GitHub Pages (sitio público)
+
+La URL del sitio: `https://calehzzz.github.io/Tocks/`
+
+1. En el repo: **Settings → Secrets and variables → Actions**, crea:
+   - `SUPABASE_URL`
+   - `SUPABASE_PUBLISHABLE_KEY`
+2. **Settings → Pages → Build and deployment → Source**: elige **GitHub Actions** (no “Deploy from a branch”).
+3. Cada push a `main` construye y publica el `dist/`.
+
+Si Pages sigue apuntando a la rama `main` en `/`, verás pantalla en blanco: eso sirve el `index.html` de desarrollo, no el build.
+
+En Supabase → Authentication → URL configuration, agrega:
+- Site URL: `https://calehzzz.github.io/Tocks/`
+- Redirect URLs: `https://calehzzz.github.io/Tocks/**`
+
+
 ## Configurar Supabase
 
 1. Crea un proyecto en Supabase.

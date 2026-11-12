@@ -12,7 +12,14 @@ export default defineConfig(({ mode }) => {
     env.VITE_SUPABASE_ANON_KEY ||
     ''
 
+  // GitHub project pages live at /Tocks/; local/dev stays at /
+  const base =
+    process.env.VITE_BASE ||
+    env.VITE_BASE ||
+    (process.env.GITHUB_ACTIONS ? '/Tocks/' : '/')
+
   return {
+    base,
     plugins: [react()],
     envPrefix: ['VITE_', 'SUPABASE_'],
     define: {
@@ -25,3 +32,4 @@ export default defineConfig(({ mode }) => {
     },
   }
 })
+
